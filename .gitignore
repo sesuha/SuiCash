@@ -31,6 +31,10 @@ ml/checkpoints/
 __pycache__/
 *.pyc
 
+# Personal editor settings
+.vscode/
+.idea/
+
 # Logs and OS files
 *.log
 .DS_Store
