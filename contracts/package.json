@@ -1,0 +1,16 @@
+{
+  "name": "@suicash/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundry project: PolicyVault, VaultFactory, SavingsPool and test contracts. Solidity libraries are installed from npm so the lockfile pins them.",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "lint": "forge fmt --check",
+    "format": "forge fmt"
+  },
+  "devDependencies": {
+    "forge-std": "github:foundry-rs/forge-std#f3dae6e6ee381f25eb6a246f7da9b85c91a68219"
+  }
+}

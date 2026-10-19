@@ -1,0 +1,41 @@
+{
+  "name": "suicash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SuiCash: an AI wallet agent that can move your money, but can't be talked into stealing it. FinTechathon 2026 Topic F.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r --filter \"./packages/*\" --filter \"./apps/*\" run test",
+    "test:contracts": "pnpm --filter @suicash/contracts run test",
+    "test:e2e": "pnpm --filter @suicash/web run test:e2e",
+    "redteam": "tsx redteam/run.ts",
+    "eval": "tsx eval/run.ts",
+    "deploy:local": "tsx scripts/deploy.ts local",
+    "deploy:testnet": "tsx scripts/deploy.ts testnet",
+    "evidence": "tsx scripts/evidence.ts",
+    "new-deployer-key": "tsx scripts/new-deployer-key.ts",
+    "lint": "eslint . --max-warnings 0 && prettier --check . && pnpm --filter @suicash/contracts run lint",
+    "format": "prettier --write . && pnpm --filter @suicash/contracts run format",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2",
+    "viem": "2.57.7"
+  }
+}

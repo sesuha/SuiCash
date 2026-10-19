@@ -1,0 +1,9 @@
+# Normalise line endings so shell scripts run on Linux CI and macOS even when
+# the repository is edited on Windows.
+* text=auto eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.bin binary

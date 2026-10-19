@@ -1,0 +1,37 @@
+# Secrets: every .env file except the committed template
+.env*
+!.env.example
+
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Foundry
+contracts/out/
+contracts/cache/
+out/
+cache/
+broadcast/*/dry-run/
+contracts/broadcast/*/dry-run/
+# Local anvil deployments change on every run; testnet ones are committed as evidence
+contracts/deployments/31337.json
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+
+# Python / ML
+ml/.venv/
+ml/data/raw/
+ml/checkpoints/
+__pycache__/
+*.pyc
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db

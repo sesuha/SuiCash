@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+node_modules/
+dist/
+coverage/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/deployments/
+apps/web/test-results/
+apps/web/playwright-report/
+ml/
+*.sol

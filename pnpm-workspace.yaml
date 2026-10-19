@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  # The Foundry project is a workspace package so its Solidity libraries
+  # (forge-std, later OpenZeppelin) are pinned in the same lockfile.
+  - "contracts"
+
+# Handbook rule 5: every dependency pinned to an exact version.
+savePrefix: ""
+engineStrict: true
+
+# Dependency install scripts are denied unless listed as true here (supply-chain hardening).
+allowBuilds:
+  # Its postinstall only re-checks the platform binary, which pnpm already
+  # installs as an optional dependency.
+  esbuild: false
