@@ -21,6 +21,16 @@ runs = 10000
 runs = 256
 depth = 64
 fail_on_revert = false
+show_metrics = true
+
+[lint]
+# Reviewed and intentional (see docs/SLITHER.md):
+#  - block-timestamp: sessions, timelocks, recipient activation and daily caps are time-based by design;
+#    validators can skew time by seconds, which none of these depend on.
+#  - non-reentrant-not-first: handbook 2.4 orders whenNotPaused before nonReentrant; the pause check is a
+#    storage read with no external call, so the order does not affect reentrancy safety.
+#  - require-revert-in-loop: a batch must revert as a whole if any item fails (handbook 2.9).
+exclude_lints = ["block-timestamp", "non-reentrant-not-first", "require-revert-in-loop"]
 
 [fmt]
 line_length = 120

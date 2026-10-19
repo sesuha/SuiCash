@@ -104,3 +104,95 @@ These were the current stable releases at build time (rule 5): Vite 8, Vitest 5,
 React 19.3, viem 2.57, Playwright 1.64 and Foundry 1.8.5. Phase 1 also includes a Playwright
 smoke test (`pnpm test:e2e`). It is not yet in CI; the handbook's CI list adds end-to-end tests
 in Phase 7.
+
+## Phase 2: smart contracts (2026-10-19)
+
+### D-013: a token's first `setTokenLimits` call enables it immediately
+
+The handbook says cap decreases apply now and increases wait for the timelock. Read literally,
+the owner's very first configuration (caps going up from zero) would also wait 24 hours,
+blocking onboarding. So the first call for a token enables it at once (`TokenEnabled`). Every
+later increase is timelocked. To switch agent spending off, set both caps to 0; switching it back
+on is then an increase, so it is timelocked too. This keeps invariant 7 meaningful: after a token
+is first configured, its caps never rise before an `eta`. `setTokenLimits` also rejects
+`perTxCap > dailyCap`, and a new call replaces any queued increase.
+
+### D-014: owner approvals bypass the agent's daily cap and the buffer
+
+The handbook says `approveRequest` "pays even to non-allowlisted recipients and above caps; still
+respects pause". Approved payments are the owner's own decision, so they do not count toward
+`spent[token]` (which the handbook defines as "spent that day by the agent") and do not check
+`minBuffer`. Requests expire after 72 hours. The approvals UI (Phase 7) shows the
+post-payment balance.
+
+### D-015: changing a recipient's cap means removing and re-adding it
+
+`addRecipient` reverts with `RecipientAlreadyAdded` for an existing recipient. A higher cap
+must not apply instantly, so the owner removes and re-adds the recipient, which restarts the
+activation delay.
+
+### D-016: fixed constants
+
+`LIMIT_TIMELOCK` (24 hours), `MAX_SESSION_DURATION` (30 days), `REQUEST_TTL` (72 hours) and
+`MAX_BATCH_SIZE` (10) are constants, since changing them would itself need a timelock. The
+recipient delay is owner-settable, from 0 to 30 days (default 1 hour), and applies to recipients
+added afterwards.
+
+### D-017: intent ID rules
+
+`bytes32(0)` is rejected (`InvalidIntent`). A batch marks its own intent ID as used as well as
+each item's ID, so the same ID cannot drive both a batch and a single transfer. Item IDs are
+`keccak256(abi.encode(batchIntentId, index))`, exposed as `itemIntentId()` for the engine. A
+reverted call does not consume its intent ID.
+
+### D-018: guardian powers
+
+Per the handbook, the guardian may pause, revoke the session and cancel a queued limit increase.
+It may also cancel a queued savings pool change, which is the same kind of timelocked change. It
+cannot unpause, and cannot be the agent.
+
+### D-019: named pause error, and no ownership renunciation
+
+`_requireNotPaused` is overridden to revert with `WalletPaused()`, matching the handbook's
+evidence list, instead of OpenZeppelin's `EnforcedPause()`. `renounceOwnership` always reverts
+(`RenounceDisabled`), because a vault without an owner would lock its funds forever.
+
+### D-020: savings details
+
+`depositToSavings` requires the pool's asset to be an enabled token, respects `minBuffer`, and
+resets the pool's allowance to 0 after depositing, so no allowance outlives the call (invariant
+8). Savings moves are not spending and do not count toward the daily cap. The first savings pool
+may be set immediately when none is set; later changes are timelocked (handbook 2.3).
+`SavingsPool` uses a 6-digit virtual share offset (`_decimalsOffset`) against the ERC-4626
+inflation attack (`test_SavingsPool_InflationAttackIsUneconomic`).
+
+### D-021: SeedDemo is configurable and idempotent
+
+The Base Sepolia faucet gives only 20 test USDC at a time, while the handbook's demo vault has a
+50 USDC buffer and is "funded". So `SeedDemo.s.sol` takes `SEED_PER_TX`, `SEED_DAILY`,
+`SEED_BUFFER`, `SEED_RECIPIENT_DELAY` and `SEED_FUND` overrides (handbook defaults otherwise).
+On testnet it transfers what the deployer holds, up to `SEED_FUND`. Re-running reuses the vault.
+The four contacts' addresses are derived from labels, so nobody holds their keys. Output goes to
+`deployments/<chainId>-demo.json`. `pnpm dev` advances anvil's clock past the 1-hour recipient
+delay after seeding, so local contacts are payable at once while the delay rule stays unchanged.
+
+### D-022: raw-attack check script and typed ABIs
+
+`pnpm raw-attack <local|testnet>` runs the Phase 2 acceptance check with no engine in the way.
+A fresh in-memory agent key sends `executeTransfer` to `0x…dEaD` with a fixed gas limit, so the
+transaction is mined and reverts on-chain; the script decodes the error by replaying the call at
+that block. On testnet it saves `docs/evidence/phase2-raw-attack.json`. `pnpm abis` generates
+`packages/chain/src/abis.ts` from the compiled contracts, and CI fails if it is stale.
+
+### D-023: Slither and Foundry lint gates in CI
+
+CI runs Slither 0.11.6 with `--fail-medium`. The four medium `incorrect-equality` findings are
+false positives, annotated in the source, and the triage is in `docs/SLITHER.md`. Three Foundry
+lints are disabled in `foundry.toml`, each with its reason recorded there.
+
+### D-024: stretch goal (`executeAction`) deferred
+
+The handbook allows the allowlisted-actions stretch only "after every acceptance check in this
+phase passes". The two Base Sepolia checks (deploy and verify, and the on-chain
+`RecipientNotAllowed` hash) wait on testnet funding, so `executeAction` and `MockSwapRouter` are
+not built yet.

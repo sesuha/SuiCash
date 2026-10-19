@@ -21,12 +21,15 @@
     "deploy:testnet": "tsx scripts/deploy.ts testnet",
     "evidence": "tsx scripts/evidence.ts",
     "new-deployer-key": "tsx scripts/new-deployer-key.ts",
+    "abis": "tsx scripts/export-abis.ts",
+    "raw-attack": "tsx scripts/raw-attack.ts",
     "lint": "eslint . --max-warnings 0 && prettier --check . && pnpm --filter @suicash/contracts run lint",
     "format": "prettier --write . && pnpm --filter @suicash/contracts run format",
     "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@suicash/chain": "workspace:*",
     "@types/node": "24.19.2",
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",

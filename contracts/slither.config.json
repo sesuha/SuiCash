@@ -1,0 +1,4 @@
+{
+  "filter_paths": "test|script|node_modules",
+  "exclude_dependencies": true
+}

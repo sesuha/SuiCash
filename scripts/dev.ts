@@ -21,6 +21,7 @@ import {
   killTree,
   repoRoot,
   requireTool,
+  rpcCall,
   rpcChainId,
   run,
   toolEnv,
@@ -114,6 +115,11 @@ async function main(): Promise<void> {
   if (existsSync(join(contractsDir, "script", "SeedDemo.s.sol"))) {
     log("Seeding demo data (script/SeedDemo.s.sol)…");
     await forgeScript("script/SeedDemo.s.sol");
+    // New recipients activate after the vault's 1-hour delay; move anvil's clock past it so the
+    // demo contacts are payable straight away. The delay itself stays as on testnet.
+    await rpcCall(ANVIL_RPC_URL, "evm_increaseTime", [3601]);
+    await rpcCall(ANVIL_RPC_URL, "evm_mine", []);
+    log("Advanced anvil time by 1 hour so the demo contacts are active.");
   } else {
     log("No SeedDemo.s.sol yet (added in Phase 2); skipping demo seed.");
   }

@@ -8,9 +8,12 @@ within limits that the owner sets and the blockchain enforces. Three independent
 between the model and the money: a least-privilege agent, a deterministic policy engine, and an
 on-chain `PolicyVault`.
 
-> **Status: Phase 1 of 10 (repository and environment).** The monorepo, toolchain, local chain
-> and CI are in place. Contracts, the policy engine, the in-browser model and the app arrive in
-> later phases. **Testnet only:** never use a mainnet key or a seed phrase with this project.
+> **Status: Phase 2 of 10 (smart contracts).** `PolicyVault`, `VaultFactory` and `SavingsPool`
+> are built and pass 113 tests: unit, fuzz at 10,000 runs, and 8 invariants under a hostile
+> agent. Slither reports no high or medium findings. The Base Sepolia deployment and the
+> on-chain attack evidence wait on testnet funding. The policy engine, the in-browser model and
+> the app arrive in later phases. **Testnet only:** never use a mainnet key or a seed phrase with
+> this project.
 
 ## Prerequisites
 
@@ -51,27 +54,38 @@ the testnet only.
 5. Set `VITE_RPC_URL`. The public `https://sepolia.base.org` works for light use; a free Alchemy
    (or similar) endpoint is more reliable.
 6. Set `BASESCAN_API_KEY` (an Etherscan V2 key) for source verification. Then run
-   `pnpm deploy:testnet`. It refuses to run unless the RPC reports chain ID 84532.
+   `pnpm deploy:testnet`. It refuses to run unless the RPC reports chain ID 84532. It deploys and
+   verifies the contracts, seeds a demo vault owned by the deployer, and writes
+   `contracts/deployments/84532.json` and `84532-demo.json`. With only faucet USDC, set a smaller
+   `SEED_BUFFER` and `SEED_FUND` in `.env` (see `.env.example`).
+7. Run `pnpm raw-attack testnet`. A throwaway agent key sends a raw `executeTransfer` to an
+   attacker address. It reverts on-chain with `RecipientNotAllowed`, and the transaction hashes
+   are saved to `docs/evidence/phase2-raw-attack.json`.
 
 ## Commands
 
-| Command               | What it does                                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`            | Local chain, deployment, and the app's dev server                                                           |
-| `pnpm build`          | Builds every package, the web app and the contracts                                                         |
-| `pnpm test`           | Unit tests (Vitest)                                                                                         |
-| `pnpm test:contracts` | Contract unit, fuzz and invariant tests (Foundry)                                                           |
-| `pnpm test:e2e`       | End-to-end tests (Playwright; run `pnpm --filter @suicash/web exec playwright install chromium` once first) |
-| `pnpm redteam`        | Red-team suite (cases arrive in Phase 8)                                                                    |
-| `pnpm eval`           | Task-completion suite (tasks arrive in Phase 9)                                                             |
-| `pnpm deploy:local`   | Deploys the contracts to a running anvil node                                                               |
-| `pnpm deploy:testnet` | Deploys to Base Sepolia and verifies the source on Basescan                                                 |
-| `pnpm evidence`       | Generates `docs/EXECUTION_EVIDENCE.md` (Phase 9)                                                            |
-| `pnpm lint`           | ESLint, Prettier and `forge fmt` checks                                                                     |
-| `pnpm typecheck`      | TypeScript, strict mode                                                                                     |
+| Command                            | What it does                                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                         | Local chain, deployment, and the app's dev server                                                           |
+| `pnpm build`                       | Builds every package, the web app and the contracts                                                         |
+| `pnpm test`                        | Unit tests (Vitest)                                                                                         |
+| `pnpm test:contracts`              | Contract unit, fuzz and invariant tests (Foundry)                                                           |
+| `pnpm test:e2e`                    | End-to-end tests (Playwright; run `pnpm --filter @suicash/web exec playwright install chromium` once first) |
+| `pnpm redteam`                     | Red-team suite (cases arrive in Phase 8)                                                                    |
+| `pnpm eval`                        | Task-completion suite (tasks arrive in Phase 9)                                                             |
+| `pnpm deploy:local`                | Deploys the contracts to a running anvil node                                                               |
+| `pnpm deploy:testnet`              | Deploys to Base Sepolia and verifies the source on Basescan                                                 |
+| `pnpm raw-attack <local\|testnet>` | Sends a raw malicious transfer from the agent key; it must revert with `RecipientNotAllowed`                |
+| `pnpm abis`                        | Regenerates the typed ABIs in `packages/chain` from the compiled contracts                                  |
+| `pnpm evidence`                    | Generates `docs/EXECUTION_EVIDENCE.md` (Phase 9)                                                            |
+| `pnpm lint`                        | ESLint, Prettier and `forge fmt` checks                                                                     |
+| `pnpm typecheck`                   | TypeScript, strict mode                                                                                     |
 
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, the contract tests, the unit tests, the
-red-team suite and the production build on every push. A failing red-team case fails the build.
+CI (`.github/workflows/ci.yml`) runs on every push: lint, typecheck, the contract tests, an ABI
+freshness check, Slither (failing on any medium or high finding), the unit tests, the red-team
+suite and the production build. A failing red-team case fails the build. The Slither triage is
+in [`docs/SLITHER.md`](docs/SLITHER.md), and gas costs are in
+[`docs/GAS_REPORT.md`](docs/GAS_REPORT.md).
 
 ## Repository layout
 

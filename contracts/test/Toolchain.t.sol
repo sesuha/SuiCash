@@ -3,27 +3,71 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {Deploy} from "../script/Deploy.s.sol";
+import {SeedDemo} from "../script/SeedDemo.s.sol";
+import {PolicyVault} from "../src/PolicyVault.sol";
+import {SavingsPool} from "../src/SavingsPool.sol";
+import {VaultFactory} from "../src/VaultFactory.sol";
+import {MockUSDC} from "../src/test/MockUSDC.sol";
 
-/// @notice Phase 1 smoke tests: the compiler, forge-std remapping, cheatcodes and the
-///         deploy script all work. Real contract tests arrive with the contracts in Phase 2.
+/// @notice Smoke tests for the toolchain and the deploy and seed scripts.
 contract ToolchainTest is Test {
     function test_ForgeStdCheatcodesWork() public {
         vm.warp(1_700_000_000);
         assertEq(block.timestamp, 1_700_000_000);
     }
 
-    function testFuzz_FuzzerRuns(uint128 a, uint128 b) public pure {
-        // uint256 cannot overflow when adding two uint128 values.
-        assertGe(uint256(a) + uint256(b), uint256(a));
+    function test_DeployContracts_WiresPoolAndFactory() public {
+        Deploy.Deployment memory d = new Deploy().deployContracts(address(0), address(this));
+        assertEq(MockUSDC(d.usdc).decimals(), 6);
+        assertEq(SavingsPool(d.savingsPool).asset(), d.usdc);
+        assertEq(SavingsPool(d.savingsPool).owner(), address(this));
+        assertEq(VaultFactory(d.vaultFactory).savingsPool(), d.savingsPool);
     }
 
-    function test_DeployScriptWritesDeploymentFile() public {
-        // A chain ID no real deployment uses, so the test never touches deployments/31337.json.
-        vm.chainId(999_001);
-        new Deploy().run();
-        string memory path = string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");
-        string memory json = vm.readFile(path);
-        assertEq(vm.parseJsonUint(json, ".chainId"), block.chainid);
-        vm.removeFile(path);
+    function test_DeployContracts_UsesGivenUsdc() public {
+        address circleUsdc = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
+        vm.etch(circleUsdc, address(new MockUSDC()).code);
+        Deploy.Deployment memory d = new Deploy().deployContracts(circleUsdc, address(this));
+        assertEq(d.usdc, circleUsdc);
+        assertEq(SavingsPool(d.savingsPool).asset(), circleUsdc);
+    }
+
+    function test_DeployRun_RefusesMainnets() public {
+        Deploy deploy = new Deploy();
+        vm.chainId(8453); // Base mainnet
+        vm.expectRevert(abi.encodeWithSelector(Deploy.UnsupportedChain.selector, 8453));
+        deploy.run();
+        vm.chainId(1); // Ethereum mainnet
+        vm.expectRevert(abi.encodeWithSelector(Deploy.UnsupportedChain.selector, 1));
+        deploy.run();
+    }
+
+    function test_SeedDemo_ContactsAreDistinctAndCapped() public {
+        SeedDemo.Contact[4] memory c = new SeedDemo().demoContacts();
+        for (uint256 i = 0; i < c.length; ++i) {
+            assertTrue(c[i].addr != address(0));
+            assertGt(c[i].cap, 0);
+            assertLe(c[i].cap, 500e6);
+            for (uint256 j = i + 1; j < c.length; ++j) {
+                assertTrue(c[i].addr != c[j].addr);
+            }
+        }
+        assertEq(c[0].name, "Landlord");
+    }
+
+    function test_FactoryVault_CanBeSeededLikeTheScript() public {
+        Deploy.Deployment memory d = new Deploy().deployContracts(address(0), address(this));
+        PolicyVault vault = PolicyVault(VaultFactory(d.vaultFactory).createVault());
+        vault.setTokenLimits(d.usdc, 500e6, 1000e6);
+        vault.setMinBuffer(d.usdc, 50e6);
+        SeedDemo.Contact[4] memory c = new SeedDemo().demoContacts();
+        for (uint256 i = 0; i < c.length; ++i) {
+            vault.addRecipient(c[i].addr, c[i].cap);
+        }
+        (bool enabled, uint128 perTx, uint128 daily) = vault.tokens(d.usdc);
+        assertTrue(enabled);
+        assertEq(perTx, 500e6);
+        assertEq(daily, 1000e6);
+        assertEq(vault.owner(), address(this));
     }
 }

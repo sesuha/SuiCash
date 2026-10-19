@@ -3,8 +3,9 @@
  *
  *   pnpm deploy:local    Needs anvil running (`pnpm dev` starts one). Uses anvil's unlocked account.
  *   pnpm deploy:testnet  Base Sepolia. Reads DEPLOYER_PRIVATE_KEY, VITE_RPC_URL and
- *                        BASESCAN_API_KEY from the root .env, verifies source on Basescan,
- *                        then writes the deployed addresses back into .env.
+ *                        BASESCAN_API_KEY from the root .env, deploys and verifies the source on
+ *                        Basescan, seeds the demo vault (script/SeedDemo.s.sol), then writes the
+ *                        deployed addresses back into .env.
  *
  * Keys and API keys are passed to forge through environment variables, never on the command
  * line, so they do not show up in process listings or shell history.
@@ -60,21 +61,26 @@ async function deployTestnet(): Promise<void> {
   }
 
   const apiKey = env["BASESCAN_API_KEY"]?.trim();
-  const args = ["script", "script/Deploy.s.sol", "--broadcast"];
-  if (apiKey) {
-    args.push("--verify");
-  } else {
-    console.warn("BASESCAN_API_KEY is empty: deploying without source verification.");
-  }
+  if (!apiKey) console.warn("BASESCAN_API_KEY is empty: deploying without source verification.");
+  const verify = apiKey ? ["--verify"] : [];
+  const forgeEnv = toolEnv({
+    ETH_RPC_URL: rpcUrl,
+    DEPLOYER_PRIVATE_KEY: key,
+    ETHERSCAN_API_KEY: apiKey,
+    BASESCAN_API_KEY: apiKey,
+    // SeedDemo overrides (SEED_FUND, SEED_BUFFER, ...) may be set in .env.
+    ...Object.fromEntries(Object.entries(env).filter(([name]) => name.startsWith("SEED_"))),
+  });
 
-  await run("forge", args, {
+  await run("forge", ["script", "script/Deploy.s.sol", "--broadcast", ...verify], {
     cwd: contractsDir,
-    env: toolEnv({
-      ETH_RPC_URL: rpcUrl,
-      DEPLOYER_PRIVATE_KEY: key,
-      ETHERSCAN_API_KEY: apiKey,
-      BASESCAN_API_KEY: apiKey,
-    }),
+    env: forgeEnv,
+  });
+  // The demo vault for the deployer (the demo owner): used by `pnpm raw-attack testnet` and the
+  // evidence script. Idempotent, so re-running is safe.
+  await run("forge", ["script", "script/SeedDemo.s.sol", "--broadcast", ...verify], {
+    cwd: contractsDir,
+    env: forgeEnv,
   });
 
   const addresses = deploymentToViteEnv(readDeployment(BASE_SEPOLIA_CHAIN_ID));

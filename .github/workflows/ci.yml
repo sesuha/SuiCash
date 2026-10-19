@@ -47,6 +47,19 @@ jobs:
       - name: Contract tests (unit, fuzz, invariant)
         run: pnpm test:contracts
 
+      - name: Typed ABIs match the compiled contracts
+        run: pnpm abis --check
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Slither (fails on any medium or high finding)
+        working-directory: contracts
+        run: |
+          pip install slither-analyzer==0.11.6
+          slither . --fail-medium
+
       - name: Unit tests
         run: pnpm test
 

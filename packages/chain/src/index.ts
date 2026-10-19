@@ -16,6 +16,8 @@ import {
 } from "viem";
 import { anvil, baseSepolia } from "viem/chains";
 
+export * from "./abis.ts";
+
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const ANVIL_CHAIN_ID = 31337;
 

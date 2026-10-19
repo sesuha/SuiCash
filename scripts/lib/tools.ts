@@ -58,6 +58,18 @@ export function killTree(child: ChildProcess): void {
   }
 }
 
+/** Sends one JSON-RPC request and returns its result. Throws on an RPC error. */
+export async function rpcCall(url: string, method: string, params: unknown[]): Promise<unknown> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const body = (await response.json()) as { result?: unknown; error?: { message: string } };
+  if (body.error) throw new Error(`${method} failed: ${body.error.message}`);
+  return body.result;
+}
+
 /** Returns the chain ID served at `url`, or null if nothing answers. */
 export async function rpcChainId(url: string, timeoutMs = 1500): Promise<number | null> {
   try {

@@ -14,9 +14,10 @@ installed by CI. Update this file in the same commit that adds or upgrades a dep
 
 ## Solidity libraries
 
-| Library                                                | Version                    | Licence           | Used for                                         |
-| ------------------------------------------------------ | -------------------------- | ----------------- | ------------------------------------------------ |
-| [`forge-std`](https://github.com/foundry-rs/forge-std) | v1.17.0 (commit `f3dae6e`) | MIT OR Apache-2.0 | Contract tests and deploy scripts (not deployed) |
+| Library                                                                             | Version                    | Licence           | Used for                                                                                  |
+| ----------------------------------------------------------------------------------- | -------------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| [`forge-std`](https://github.com/foundry-rs/forge-std)                              | v1.17.0 (commit `f3dae6e`) | MIT OR Apache-2.0 | Contract tests and deploy scripts (not deployed)                                          |
+| [`@openzeppelin/contracts`](https://github.com/OpenZeppelin/openzeppelin-contracts) | 5.6.1                      | MIT               | `Ownable2Step`, `Pausable`, `ReentrancyGuard`, `SafeERC20`, `ERC20`, `ERC4626` (deployed) |
 
 ## Development dependencies (not shipped)
 
@@ -51,6 +52,7 @@ installed by CI. Update this file in the same commit that adds or upgrades a dep
 | GitHub Actions: `actions/setup-node`           | v7.1.0  | MIT               |
 | GitHub Actions: `pnpm/action-setup`            | v6.1.0  | MIT               |
 | GitHub Actions: `foundry-rs/foundry-toolchain` | v1.9.1  | MIT OR Apache-2.0 |
+| GitHub Actions: `actions/setup-python`         | v7.0.0  | MIT               |
 
 Compiling with solc does not put its GPL licence on the compiled contracts. Slither is run as a
 separate analysis tool and is not linked or distributed.

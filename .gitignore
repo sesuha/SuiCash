@@ -18,6 +18,10 @@ broadcast/*/dry-run/
 contracts/broadcast/*/dry-run/
 # Local anvil deployments change on every run; testnet ones are committed as evidence
 contracts/deployments/31337.json
+contracts/deployments/31337-demo.json
+contracts/broadcast/*/31337/
+contracts/slither-report.json
+crytic-export/
 
 # Playwright
 apps/web/test-results/
