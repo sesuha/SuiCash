@@ -23,6 +23,9 @@
     "new-deployer-key": "tsx scripts/new-deployer-key.ts",
     "abis": "tsx scripts/export-abis.ts",
     "raw-attack": "tsx scripts/raw-attack.ts",
+    "testnet:check": "tsx scripts/testnet-check.ts",
+    "testnet:rehearse": "tsx scripts/testnet-rehearse.ts",
+    "verify:testnet": "tsx scripts/verify-testnet.ts",
     "lint": "eslint . --max-warnings 0 && prettier --check . && pnpm --filter @suicash/contracts run lint",
     "format": "prettier --write . && pnpm --filter @suicash/contracts run format",
     "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck"

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {PolicyVault} from "../src/PolicyVault.sol";
 import {VaultFactory} from "../src/VaultFactory.sol";
 import {HostileToken} from "../src/test/HostileToken.sol";
@@ -49,7 +50,12 @@ contract SeedDemo is Script {
         hostile.airdrop(vault, 1_000_000e18);
         vm.stopBroadcast();
 
-        _write(vault, demoOwner, address(hostile), contacts);
+        // A dry run's addresses never exist on-chain, so only a real broadcast records them.
+        if (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume)) {
+            _write(vault, demoOwner, address(hostile), contacts);
+        } else {
+            console2.log("Dry run: demo file not written.");
+        }
     }
 
     function _config() internal view returns (Config memory cfg) {

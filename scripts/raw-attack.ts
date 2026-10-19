@@ -30,17 +30,20 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { anvil, baseSepolia } from "viem/chains";
 import { readEnvFile, rootEnvPath } from "./lib/env.ts";
+import { testnetTarget } from "./lib/testnet.ts";
 import { ANVIL_RPC_URL, ANVIL_SENDER, contractsDir, repoRoot } from "./lib/tools.ts";
 
 /** The address the HostileToken's injection payload tells the agent to send everything to. */
 const ATTACKER: Address = "0x000000000000000000000000000000000000dEaD";
 const ATTACK_AMOUNT = 1_000_000n; // 1 USDC
+const ATTACK_GAS = 200_000n;
 
 interface Target {
   chain: Chain;
   rpcUrl: string;
   owner: Account | Address;
-  agentGas: bigint;
+  /** Extra ETH for the agent on top of its execution gas (Base's L1 data fee). */
+  agentGasMargin: bigint;
   explorer: string | null;
 }
 
@@ -51,22 +54,22 @@ function target(name: string | undefined): Target {
       chain: anvil,
       rpcUrl: ANVIL_RPC_URL,
       owner: ANVIL_SENDER,
-      agentGas: parseEther("0.01"),
+      agentGasMargin: 0n,
       explorer: null,
     };
   }
   if (name === "testnet") {
     const env = readEnvFile(rootEnvPath);
     const key = env["DEPLOYER_PRIVATE_KEY"]?.trim();
-    const rpcUrl = env["VITE_RPC_URL"]?.trim();
-    if (!key || !rpcUrl)
-      throw new Error("DEPLOYER_PRIVATE_KEY and VITE_RPC_URL must be set in .env");
+    if (!key) throw new Error("DEPLOYER_PRIVATE_KEY must be set in .env");
+    const { rpcUrl, rehearsal } = testnetTarget(env);
     return {
       chain: baseSepolia,
       rpcUrl,
       owner: privateKeyToAccount(key as `0x${string}`),
-      agentGas: parseEther("0.0001"),
-      explorer: "https://sepolia.basescan.org/tx/",
+      agentGasMargin: parseEther("0.00002"),
+      // A rehearsal on a local fork produces no real hashes: no explorer links, no evidence file.
+      explorer: rehearsal ? null : "https://sepolia.basescan.org/tx/",
     };
   }
   throw new Error("Usage: tsx scripts/raw-attack.ts <local|testnet>");
@@ -112,6 +115,24 @@ async function main(): Promise<void> {
   const tx: Record<string, Hash> = {};
   const wait = async (hash: Hash) => pub.waitForTransactionReceipt({ hash });
 
+  const usdcBalance = (holder: Address) =>
+    pub.readContract({
+      address: usdc,
+      abi: [
+        {
+          type: "function",
+          name: "balanceOf",
+          stateMutability: "view",
+          inputs: [{ name: "a", type: "address" }],
+          outputs: [{ type: "uint256" }],
+        },
+      ] as const,
+      functionName: "balanceOf",
+      args: [holder],
+    });
+  const attackerBefore = await usdcBalance(ATTACKER);
+  const vaultBefore = await usdcBalance(vault);
+
   console.log(`Vault ${vault} on chain ${chainId}; attacker ${ATTACKER}`);
 
   // 1. The owner grants a short session to the fresh agent key.
@@ -124,8 +145,12 @@ async function main(): Promise<void> {
   });
   await wait(tx["setAgent"]);
 
-  // 2. Gas money for the agent (Mode A; Mode B uses a paymaster instead).
-  tx["fundAgent"] = await owner.sendTransaction({ to: agent.address, value: t.agentGas });
+  // 2. Gas money for the agent (Mode A; Mode B uses a paymaster instead), sized from the current
+  //    fee estimate with 3x headroom, plus a margin for Base's L1 data fee. The attack pins the
+  //    same max fee, so the funding always covers it even if fees move in between.
+  const { maxFeePerGas } = await pub.estimateFeesPerGas();
+  const agentFunding = maxFeePerGas * ATTACK_GAS * 3n + t.agentGasMargin;
+  tx["fundAgent"] = await owner.sendTransaction({ to: agent.address, value: agentFunding });
   await wait(tx["fundAgent"]);
 
   // 3. The attack: a raw call straight to the vault, no policy engine involved.
@@ -136,7 +161,8 @@ async function main(): Promise<void> {
     abi: policyVaultAbi,
     functionName: "executeTransfer",
     args,
-    gas: 200_000n, // fixed, so the transaction is mined and reverts on-chain
+    gas: ATTACK_GAS, // fixed, so the transaction is mined and reverts on-chain
+    maxFeePerGas,
   });
   const receipt = await wait(tx["attack"]);
 
@@ -159,22 +185,16 @@ async function main(): Promise<void> {
   });
   await wait(tx["revokeAgent"]);
 
-  const attackerBalance = await pub.readContract({
-    address: usdc,
-    abi: [
-      {
-        type: "function",
-        name: "balanceOf",
-        stateMutability: "view",
-        inputs: [{ name: "a", type: "address" }],
-        outputs: [{ type: "uint256" }],
-      },
-    ] as const,
-    functionName: "balanceOf",
-    args: [ATTACKER],
-  });
+  // Changes, not absolute balances: on Base Sepolia 0x…dEaD already holds other people's burned
+  // test USDC, so only "nothing moved" is meaningful.
+  const attackerChange = (await usdcBalance(ATTACKER)) - attackerBefore;
+  const vaultChange = (await usdcBalance(vault)) - vaultBefore;
 
-  const passed = receipt.status === "reverted" && reason.startsWith("RecipientNotAllowed");
+  const passed =
+    receipt.status === "reverted" &&
+    reason.startsWith("RecipientNotAllowed") &&
+    attackerChange === 0n &&
+    vaultChange === 0n;
   const result = {
     check: "Raw executeTransfer to an attacker from the agent key reverts with RecipientNotAllowed",
     chainId,
@@ -184,7 +204,8 @@ async function main(): Promise<void> {
     attackStatus: receipt.status,
     attackGasUsed: receipt.gasUsed.toString(),
     revertReason: reason,
-    attackerUsdcBalance: attackerBalance.toString(),
+    attackerUsdcChange: attackerChange.toString(),
+    vaultUsdcChange: vaultChange.toString(),
     transactions: Object.fromEntries(
       Object.entries(tx).map(([k, h]) => [k, t.explorer ? `${t.explorer}${h}` : h]),
     ),

@@ -44,23 +44,45 @@ the testnet only.
 
 ## Testnet setup (Base Sepolia)
 
-1. `cp .env.example .env`, then fill it in. `.env` is gitignored.
-2. Create a deployer key: `pnpm new-deployer-key`. This writes `DEPLOYER_PRIVATE_KEY` to `.env`
-   and prints only the address. `cast wallet new` also works.
-3. Fund that address with Base Sepolia ETH (the Coinbase Developer Platform faucet, or another
-   Base Sepolia faucet), and with test USDC from <https://faucet.circle.com>.
-4. Create a [ZeroDev](https://dashboard.zerodev.app) (or Pimlico) project for Base Sepolia, and
-   copy its bundler and paymaster URLs into `VITE_BUNDLER_URL` and `VITE_PAYMASTER_URL`.
-5. Set `VITE_RPC_URL`. The public `https://sepolia.base.org` works for light use; a free Alchemy
-   (or similar) endpoint is more reliable.
-6. Set `BASESCAN_API_KEY` (an Etherscan V2 key) for source verification. Then run
-   `pnpm deploy:testnet`. It refuses to run unless the RPC reports chain ID 84532. It deploys and
-   verifies the contracts, seeds a demo vault owned by the deployer, and writes
-   `contracts/deployments/84532.json` and `84532-demo.json`. With only faucet USDC, set a smaller
-   `SEED_BUFFER` and `SEED_FUND` in `.env` (see `.env.example`).
-7. Run `pnpm raw-attack testnet`. A throwaway agent key sends a raw `executeTransfer` to an
-   attacker address. It reverts on-chain with `RecipientNotAllowed`, and the transaction hashes
-   are saved to `docs/evidence/phase2-raw-attack.json`.
+`pnpm testnet:check` shows what is ready and what is missing at any point; it sends nothing.
+`pnpm testnet:rehearse` runs the whole flow below on a local fork of the real Base Sepolia chain,
+with a pretend balance, so you can confirm it works before spending faucet funds. The deploy,
+seed and raw attack together use about 0.0008 ETH.
+
+1. **`.env` and a deployer key.** `cp .env.example .env`, then run `pnpm new-deployer-key`. This
+   writes `DEPLOYER_PRIVATE_KEY` to `.env` (gitignored) and prints only the address. The key is
+   for testnet only.
+2. **Base Sepolia ETH (required).** At least 0.003 ETH to the deployer address. Faucets change
+   often, so check each page for its current limits:
+   - [QuickNode](https://faucet.quicknode.com/base/sepolia): no account or mainnet balance
+     needed. Paste the address and request every 12 hours.
+   - [Superchain Faucet](https://console.optimism.io/faucet): sign in, choose Base Sepolia,
+     paste the address (0.01 ETH per day).
+   - [Chainlink](https://faucets.chain.link/base-sepolia): connect a wallet you control (for
+     example MetaMask on Base Sepolia), claim, then send ETH from that wallet to the deployer.
+   - Alchemy's faucet requires the receiving wallet to hold mainnet ETH, so it does not work for
+     a fresh deployer address.
+3. **Test USDC (optional for Phase 2).** At <https://faucet.circle.com>, pick USDC and Base
+   Sepolia, paste the deployer address and send (20 USDC every 2 hours). With faucet-sized
+   funds, keep `SEED_BUFFER` below `SEED_FUND` in `.env`, for example `SEED_BUFFER=5000000` and
+   `SEED_FUND=20000000` (5 and 20 USDC).
+4. **Basescan key (optional).** Sign up at <https://etherscan.io>, open
+   <https://etherscan.io/myapikey>, choose Add, and paste the key into `BASESCAN_API_KEY=` in
+   `.env`. One Etherscan V2 key covers Basescan. Without a key, contracts are verified on
+   [Blockscout](https://base-sepolia.blockscout.com) instead. Add the key later and run
+   `pnpm verify:testnet` to verify on Basescan as well.
+5. **RPC.** `VITE_RPC_URL=https://sepolia.base.org` works for light use; a free Alchemy (or
+   similar) Base Sepolia endpoint is more reliable.
+6. **Deploy.** Run `pnpm testnet:check` until it says Ready, then `pnpm deploy:testnet`. It
+   refuses to run unless the RPC reports chain ID 84532. It deploys and verifies the contracts,
+   seeds a demo vault owned by the deployer, and writes `contracts/deployments/84532.json` and
+   `84532-demo.json`.
+7. **On-chain attack evidence.** Run `pnpm raw-attack testnet`. A throwaway agent key sends a raw
+   `executeTransfer` to an attacker address. It reverts on-chain with `RecipientNotAllowed`, and
+   the transaction links are saved to `docs/evidence/phase2-raw-attack.json`.
+8. **ERC-4337 (Phase 3).** Create a [ZeroDev](https://dashboard.zerodev.app) (or Pimlico) project
+   for Base Sepolia and copy its bundler and paymaster URLs into `VITE_BUNDLER_URL` and
+   `VITE_PAYMASTER_URL`.
 
 ## Commands
 
@@ -77,6 +99,9 @@ the testnet only.
 | `pnpm deploy:testnet`              | Deploys to Base Sepolia and verifies the source on Basescan                                                 |
 | `pnpm raw-attack <local\|testnet>` | Sends a raw malicious transfer from the agent key; it must revert with `RecipientNotAllowed`                |
 | `pnpm abis`                        | Regenerates the typed ABIs in `packages/chain` from the compiled contracts                                  |
+| `pnpm testnet:check`               | Read-only readiness check for Base Sepolia (key, RPC, ETH, USDC, Basescan key)                              |
+| `pnpm testnet:rehearse`            | Runs deploy, seed and the raw attack on a local fork of Base Sepolia; changes nothing real                  |
+| `pnpm verify:testnet`              | Verifies the deployed contracts on Basescan (after adding `BASESCAN_API_KEY`)                               |
 | `pnpm evidence`                    | Generates `docs/EXECUTION_EVIDENCE.md` (Phase 9)                                                            |
 | `pnpm lint`                        | ESLint, Prettier and `forge fmt` checks                                                                     |
 | `pnpm typecheck`                   | TypeScript, strict mode                                                                                     |

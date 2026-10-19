@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {SavingsPool} from "../src/SavingsPool.sol";
 import {VaultFactory} from "../src/VaultFactory.sol";
 import {MockUSDC} from "../src/test/MockUSDC.sol";
@@ -35,7 +36,17 @@ contract Deploy is Script {
         (, address deployer,) = vm.readCallers();
         d = deployContracts(usdc, deployer);
         vm.stopBroadcast();
-        _write(d, deployer);
+        // A dry run's addresses never exist on-chain, so only a real broadcast records them.
+        if (isBroadcasting()) {
+            _write(d, deployer);
+        } else {
+            console2.log("Dry run: deployments file not written.");
+        }
+    }
+
+    /// @notice True when forge is actually sending transactions (`--broadcast` or `--resume`).
+    function isBroadcasting() public view returns (bool) {
+        return vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
     }
 
     /// @notice Deploys everything. Pass usdc = address(0) to deploy a MockUSDC.

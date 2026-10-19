@@ -190,6 +190,28 @@ CI runs Slither 0.11.6 with `--fail-medium`. The four medium `incorrect-equality
 false positives, annotated in the source, and the triage is in `docs/SLITHER.md`. Three Foundry
 lints are disabled in `foundry.toml`, each with its reason recorded there.
 
+### D-025: testnet tooling, found by rehearsing on a fork (2026-10-20)
+
+- `forge script` ignores `ETH_RPC_URL`, so the deploy scripts now pass `--rpc-url` explicitly.
+  Before this fix, `pnpm deploy:testnet` would have simulated on an in-memory chain instead of
+  Base Sepolia.
+- `Deploy.s.sol` and `SeedDemo.s.sol` write deployment files only when forge is really
+  broadcasting (`vm.isContext(ScriptBroadcast | ScriptResume)`), so a dry run cannot record
+  addresses that do not exist.
+- Without `BASESCAN_API_KEY`, contracts are verified on Base Sepolia's Blockscout explorer, which
+  needs no key. `pnpm verify:testnet` adds Basescan verification later. The `[etherscan]` and
+  `base_sepolia` entries were removed from `foundry.toml`, so an empty key never breaks config
+  loading.
+- The raw-attack agent's gas money is sized from the live fee estimate (3x, plus an L1-fee
+  margin) and the attack pins the same max fee, instead of a fixed 0.0001 ETH that failed on the
+  fork.
+- The raw-attack evidence records balance changes, not absolute balances: on Base Sepolia,
+  `0x…dEaD` already holds other people's burned test USDC. A pass now also requires an attacker
+  change and a vault change of 0.
+- `pnpm testnet:check` (read-only readiness) and `pnpm testnet:rehearse` (the whole flow on an
+  anvil fork of Base Sepolia, with real deployment files backed up and restored) were added. A
+  rehearsal skips verification, `.env` updates and evidence files.
+
 ### D-024: stretch goal (`executeAction`) deferred
 
 The handbook allows the allowlisted-actions stretch only "after every acceptance check in this
