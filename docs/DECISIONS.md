@@ -88,6 +88,9 @@ phases.
 CI actions are pinned to full commit SHAs, with the tag in a comment, so a moved tag cannot
 change what CI runs. Annotated tags are dereferenced to their commits.
 
+The runner image is pinned to `ubuntu-24.04` rather than `ubuntu-latest`, which GitHub moves to
+Ubuntu 26 from 2026-10-19. Upgrading the OS image is then a deliberate change, not a silent one.
+
 ### D-011: the deploy script reads keys from the environment
 
 `script/Deploy.s.sol` uses `vm.envUint("DEPLOYER_PRIVATE_KEY")` on testnet, and `--unlocked` on

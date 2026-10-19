@@ -14,7 +14,8 @@ concurrency:
 jobs:
   ci:
     name: Lint, typecheck, test, red team, build
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which moves to Ubuntu 26 from 2026-10-19.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       # Actions are pinned to commit SHAs (supply-chain hardening); the tag is in the comment.
